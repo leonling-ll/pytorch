@@ -201,6 +201,8 @@ class BaseConfigHeuristic(metaclass=BaseHeuristicSingleton):
             GemmConfig(128, 128, 64, 5, 8),
         ]
 
+        self.specified_mm_configs = {}
+
         # Exhaustive search for mm configs
         self.exhaustive_configs: list[BaseConfig] = [
             GemmConfig(BLOCK_M, BLOCK_N, BLOCK_K, num_stages, num_warps, group_m)
@@ -662,6 +664,12 @@ class BaseConfigHeuristic(metaclass=BaseHeuristicSingleton):
         if config.max_autotune_gemm_search_space == "EXHAUSTIVE":
             assert dtype_size > 0, "dtype_size must be provided for exhaustive search"
             scaled_configs = self._prune_exhaustive_configs(scaled_configs, dtype_size)
+
+        # Try to specify a single config for target shape to override original configs.
+        # This does not consider the input datatypes and scale impact.
+        if config.specified_mm_config:
+            scaled_configs = self.specified_mm_configs.get((m, n, k), scaled_configs)
+
         return self._finalize_mm_configs(scaled_configs)
 
     def triton_config(
@@ -1053,6 +1061,13 @@ class ROCmConfigHeuristic(BaseConfigHeuristic):
             ROCmGemmConfig(16, 16, 256, 3, 4, group_m=1, waves_per_eu=4, kpack=1),
             ROCmGemmConfig(64, 256, 64, 2, 16, group_m=1, waves_per_eu=2, kpack=1),
         ]
+
+        self.specified_mm_configs = {
+            (1, 512, 256): [ROCmGemmConfig(16, 16, 256, 2, 4, group_m=1, waves_per_eu=2, kpack=1)],
+            (1, 256, 256): [ROCmGemmConfig(16, 16, 128, 3, 4, group_m=1, waves_per_eu=4, kpack=1)],
+            (1, 256, 512): [ROCmGemmConfig(16, 16, 256, 3, 4, group_m=1, waves_per_eu=4, kpack=1)],
+            (2297, 512, 256): [ROCmGemmConfig(64, 256, 64, 2, 16, group_m=1, waves_per_eu=2, kpack=1)],
+        }
 
         # Exhaustive search for mm configs
         self.exhaustive_configs: list[BaseConfig] = [

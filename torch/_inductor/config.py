@@ -1061,6 +1061,9 @@ enable_caching_generated_triton_templates: bool = True
 # Lookup table for overriding autotune configs based on hash of Triton source code
 autotune_lookup_table: dict[str, dict[str, Any]] = {}
 
+# Specify a single config to be used for the matmul template.
+specified_mm_config: bool = os.environ.get("TORCHINDUCTOR_SPECIFIED_MM_CONFIG", "0") == "1"
+
 
 def get_worker_log_path() -> Optional[str]:
     log_loc = None
